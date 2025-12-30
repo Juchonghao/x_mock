@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { PlaywrightFollowService } = require('./src/services/playwrightFollowService');
-const { PlaywrightDMService } = require('./src/services/playwrightDMService');
+const DMService = require('./src/services/dmService');
 const { PlaywrightInteractionService } = require('./src/services/playwrightInteractionService');
 
 const app = express();
@@ -44,14 +44,20 @@ async function initializeServices() {
   try {
     console.log('🚀 初始化服务...');
     
+    // 初始化关注服务
     followService = new PlaywrightFollowService({ headless: true });
-    dmService = new PlaywrightDMService({ headless: true });
+    
+    // 初始化私信服务
+    dmService = new DMService({ headless: true });
+    
+    // 初始化互动服务
     interactionService = new PlaywrightInteractionService({ headless: true });
     
     console.log('✅ 服务初始化完成');
     return true;
   } catch (error) {
     console.error('❌ 服务初始化失败:', error.message);
+    console.error('错误详情:', error);
     return false;
   }
 }
