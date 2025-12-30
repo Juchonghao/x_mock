@@ -1,0 +1,51 @@
+{
+  "summary": {
+    "totalTests": 4,
+    "successfulTests": 4,
+    "failedTests": 0,
+    "successRate": "100.0%"
+  },
+  "results": [
+    {
+      "test": "service_status",
+      "status": {
+        "browserInitialized": true,
+        "pageLoaded": true,
+        "proxyUsed": null,
+        "sessionDir": "./sessions"
+      },
+      "timestamp": "2025-12-30T02:32:55.606Z"
+    },
+    {
+      "test": "message_generation",
+      "baseMessages": [
+        "你好！这是测试消息",
+        "Hello! This is a test message",
+        "Hi there! 👋",
+        "Greetings!"
+      ],
+      "generatedMessages": [
+        "你好！这是测试消息🚀",
+        "Hello! This is a test message🤖",
+        "Hi there! 👋💫",
+        "Greetings!💫"
+      ],
+      "canSend": true,
+      "timestamp": "2025-12-30T02:32:55.607Z"
+    },
+    {
+      "test": "screenshot",
+      "filename": "test-screenshot-1767061975607.png",
+      "filePath": "sessions/test-screenshot-1767061975607.png",
+      "success": true,
+      "timestamp": "2025-12-30T02:32:56.008Z"
+    },
+    {
+      "test": "single_message",
+      "targetUsername": "kent236896",
+      "success": true,
+      "timestamp": "2025-12-30T02:33:57.836Z"
+    }
+  ],
+  "timestamp": "2025-12-30T02:33:57.836Z"
+}

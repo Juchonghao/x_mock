@@ -1,0 +1,167 @@
+version: '3.8'
+
+services:
+  # IP Manager Service (Centralized IP management)
+  ip-manager:
+    build: .
+    container_name: x-bot-ip-manager
+    environment:
+      - NODE_ENV=production
+      - SERVICE_TYPE=ip-manager
+      - PORT=3001
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - x-bot-network
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js", "--service=ip-manager"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Bot Instance 1 - US East
+  x-bot-1:
+    build: .
+    container_name: x-bot-1
+    environment:
+      - NODE_ENV=production
+      - SERVICE_TYPE=bot
+      - CONTAINER_ID=bot-1
+      - CONTAINER_NAME=x-bot-1
+      - PORT=3002
+      - IP_MANAGER_URL=http://ip-manager:3001
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./sessions/bot-1:/app/sessions
+      - ./logs/bot-1:/app/logs
+    depends_on:
+      ip-manager:
+        condition: service_healthy
+    networks:
+      - x-bot-network
+    ports:
+      - "3002:3000"
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+
+  # Bot Instance 2 - US West
+  x-bot-2:
+    build: .
+    container_name: x-bot-2
+    environment:
+      - NODE_ENV=production
+      - SERVICE_TYPE=bot
+      - CONTAINER_ID=bot-2
+      - CONTAINER_NAME=x-bot-2
+      - PORT=3003
+      - IP_MANAGER_URL=http://ip-manager:3001
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./sessions/bot-2:/app/sessions
+      - ./logs/bot-2:/app/logs
+    depends_on:
+      ip-manager:
+        condition: service_healthy
+    networks:
+      - x-bot-network
+    ports:
+      - "3003:3000"
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+
+  # Bot Instance 3 - EU Central
+  x-bot-3:
+    build: .
+    container_name: x-bot-3
+    environment:
+      - NODE_ENV=production
+      - SERVICE_TYPE=bot
+      - CONTAINER_ID=bot-3
+      - CONTAINER_NAME=x-bot-3
+      - PORT=3004
+      - IP_MANAGER_URL=http://ip-manager:3001
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./sessions/bot-3:/app/sessions
+      - ./logs/bot-3:/app/logs
+    depends_on:
+      ip-manager:
+        condition: service_healthy
+    networks:
+      - x-bot-network
+    ports:
+      - "3004:3000"
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+
+  # Monitoring Service
+  monitoring:
+    build: .
+    container_name: x-bot-monitoring
+    environment:
+      - NODE_ENV=production
+      - SERVICE_TYPE=monitoring
+      - PORT=3005
+      - IP_MANAGER_URL=http://ip-manager:3001
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - x-bot-network
+    ports:
+      - "3005:3000"
+    restart: unless-stopped
+
+  # Load Balancer (Nginx)
+  nginx:
+    image: nginx:alpine
+    container_name: x-bot-nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - x-bot-network
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - x-bot-1
+      - x-bot-2
+      - x-bot-3
+    restart: unless-stopped
+
+networks:
+  x-bot-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  data-volume:
+  sessions-volume:
+  logs-volume:

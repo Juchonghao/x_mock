@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Passcode Input Test</title>
+</head>
+<body>
+    <h1>Passcode Input Test</h1>
+    <p>请输入passcode:</p>
+    <input type="text" name="text" id="passcodeInput" placeholder="Passcode" />
+    
+    <div>
+        <button onclick="clearInput()">Clear</button>
+        <button onclick="getValue()">Get Value</button>
+        <button onclick="simulateMethod1()">Method 1: locator.type()</button>
+        <button onclick="simulateMethod2()">Method 2: keyboard.press()</button>
+    </div>
+    
+    <div id="result" style="margin-top: 20px; padding: 10px; background: #f0f0f0;">
+        <strong>Result:</strong> <span id="valueDisplay">Empty</span>
+    </div>
+    
+    <script>
+        function clearInput() {
+            document.getElementById('passcodeInput').value = '';
+            updateDisplay();
+        }
+        
+        function getValue() {
+            updateDisplay();
+        }
+        
+        function updateDisplay() {
+            const value = document.getElementById('passcodeInput').value;
+            document.getElementById('valueDisplay').textContent = `"${value}" (长度: ${value.length})`;
+        }
+        
+        function simulateMethod1() {
+            // 模拟locator.type() - 逐字符输入
+            const input = document.getElementById('passcodeInput');
+            const passcode = '0000';
+            
+            clearInput();
+            
+            for (let i = 0; i < passcode.length; i++) {
+                setTimeout(() => {
+                    input.value += passcode[i];
+                    updateDisplay();
+                    console.log(`输入字符 ${i + 1}: "${passcode[i]}", 当前值: "${input.value}"`);
+                }, i * 300);
+            }
+        }
+        
+        function simulateMethod2() {
+            // 模拟keyboard.press() - 键盘事件
+            const input = document.getElementById('passcodeInput');
+            const passcode = '0000';
+            
+            clearInput();
+            
+            for (let i = 0; i < passcode.length; i++) {
+                setTimeout(() => {
+                    const event = new KeyboardEvent('keypress', {
+                        key: passcode[i],
+                        code: 'Digit' + passcode[i],
+                        bubbles: true
+                    });
+                    input.dispatchEvent(event);
+                    updateDisplay();
+                    console.log(`输入字符 ${i + 1}: "${passcode[i]}", 当前值: "${input.value}"`);
+                }, i * 300);
+            }
+        }
+        
+        // 页面加载时显示初始状态
+        window.onload = function() {
+            updateDisplay();
+        };
+    </script>
+</body>
+</html>
