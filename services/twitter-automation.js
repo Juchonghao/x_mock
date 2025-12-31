@@ -112,7 +112,32 @@ class TwitterAutomationService {
             
             if (isFollowButton) {
               console.log(`🖱️ 点击关注按钮: "${buttonText}"`);
-              await button.click();
+              
+              // 等待可能的弹窗或覆盖层消失
+              await page.waitForTimeout(2000);
+              
+              try {
+                // 方法1：尝试直接点击
+                await button.click({ timeout: 10000 });
+                console.log(`✅ 成功点击关注按钮`);
+              } catch (clickError) {
+                console.log(`⚠️ 直接点击失败，尝试JavaScript点击: ${clickError.message}`);
+                
+                try {
+                  // 方法2：使用JavaScript点击
+                  await button.evaluate(el => el.click());
+                  console.log(`✅ JavaScript点击成功`);
+                } catch (jsClickError) {
+                  console.log(`⚠️ JavaScript点击也失败，尝试强制滚动后点击`);
+                  
+                  // 方法3：滚动到按钮位置后再点击
+                  await button.scrollIntoViewIfNeeded();
+                  await page.waitForTimeout(1000);
+                  await button.click({ timeout: 5000, force: true });
+                  console.log(`✅ 强制点击成功`);
+                }
+              }
+              
               await page.waitForTimeout(5000); // 增加等待时间
               
               // 验证关注是否成功
