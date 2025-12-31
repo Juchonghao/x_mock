@@ -138,8 +138,8 @@ class TwitterAutomationService {
                 }
               }
               
-              // 等待更长时间让页面响应
-              await page.waitForTimeout(8000);
+              // 等待更长时间让页面响应，增加到15秒
+              await page.waitForTimeout(15000);
               
               // 检查是否有弹窗需要处理
               try {
@@ -149,68 +149,113 @@ class TwitterAutomationService {
                   const closeButton = await modal.$('button[aria-label*="Close" i], button[aria-label*="取消" i], button[aria-label*="Cancel" i]');
                   if (closeButton) {
                     await closeButton.click();
-                    await page.waitForTimeout(2000);
+                    await page.waitForTimeout(3000);
                   }
                 }
               } catch (modalError) {
                 console.log(`⚠️ 弹窗处理失败: ${modalError.message}`);
               }
               
-              // 验证关注是否成功
+              // 增强的验证关注是否成功逻辑
               try {
-                // 刷新按钮引用，避免stale element
+                console.log(`🔄 开始增强验证关注状态...`);
+                
+                // 验证策略1: 立即检查按钮状态
                 const refreshedButton = await page.$(selector);
-                if (!refreshedButton) {
-                  console.log(`⚠️ 按钮元素已失效，尝试重新查找...`);
-                  continue;
-                }
-                
-                const updatedButtonText = await refreshedButton.innerText();
-                const updatedTrimmedText = updatedButtonText.trim().toLowerCase();
-                console.log(`🔄 点击后按钮文本: "${updatedButtonText}"`);
-                
-                const isNowFollowing = updatedTrimmedText.includes('正在关注') || 
-                                     updatedTrimmedText.includes('following') ||
-                                     updatedTrimmedText.includes('following you') ||
-                                     updatedTrimmedText.includes('互相关注') ||
-                                     updatedTrimmedText.includes('following and muting');
-                
-                if (isNowFollowing) {
-                  console.log(`🎉 成功关注用户: @${username}`);
-                  followSuccess = true;
-                  break;
-                } else {
-                  console.log(`⚠️ 关注操作后状态可能未完全更新，尝试页面刷新检查...`);
+                if (refreshedButton) {
+                  const updatedButtonText = await refreshedButton.innerText();
+                  const updatedTrimmedText = updatedButtonText.trim().toLowerCase();
+                  console.log(`🔄 第一次检查按钮文本: "${updatedButtonText}"`);
                   
-                  // 尝试刷新页面检查关注状态
-                  try {
-                    await page.reload({ waitUntil: 'domcontentloaded', timeout: 10000 });
-                    await page.waitForTimeout(3000);
-                    
-                    const finalButton = await page.$(selector);
-                    if (finalButton) {
-                      const finalButtonText = await finalButton.innerText();
-                      const finalTrimmedText = finalButtonText.trim().toLowerCase();
-                      console.log(`🔄 刷新后按钮文本: "${finalButtonText}"`);
-                      
-                      const finalIsFollowing = finalTrimmedText.includes('正在关注') || 
-                                              finalTrimmedText.includes('following') ||
-                                              finalTrimmedText.includes('following you') ||
-                                              finalTrimmedText.includes('互相关注') ||
-                                              finalTrimmedText.includes('following and muting');
-                      
-                      if (finalIsFollowing) {
-                        console.log(`🎉 刷新后确认成功关注用户: @${username}`);
-                        followSuccess = true;
-                        break;
-                      }
-                    }
-                  } catch (reloadError) {
-                    console.log(`⚠️ 页面刷新检查失败: ${reloadError.message}`);
+                  const isNowFollowing = updatedTrimmedText.includes('正在关注') || 
+                                       updatedTrimmedText.includes('following') ||
+                                       updatedTrimmedText.includes('following you') ||
+                                       updatedTrimmedText.includes('互相关注') ||
+                                       updatedTrimmedText.includes('following and muting');
+                  
+                  if (isNowFollowing) {
+                    console.log(`🎉 第一次检查确认成功关注用户: @${username}`);
+                    followSuccess = true;
+                    break;
                   }
                 }
+                
+                // 验证策略2: 等待5秒后再次检查
+                console.log(`⏳ 等待5秒后第二次检查...`);
+                await page.waitForTimeout(5000);
+                
+                const secondCheckButton = await page.$(selector);
+                if (secondCheckButton) {
+                  const secondButtonText = await secondCheckButton.innerText();
+                  const secondTrimmedText = secondButtonText.trim().toLowerCase();
+                  console.log(`🔄 第二次检查按钮文本: "${secondButtonText}"`);
+                  
+                  const isSecondFollowing = secondTrimmedText.includes('正在关注') || 
+                                           secondTrimmedText.includes('following') ||
+                                           secondTrimmedText.includes('following you') ||
+                                           secondTrimmedText.includes('互相关注') ||
+                                           secondTrimmedText.includes('following and muting');
+                  
+                  if (isSecondFollowing) {
+                    console.log(`🎉 第二次检查确认成功关注用户: @${username}`);
+                    followSuccess = true;
+                    break;
+                  }
+                }
+                
+                // 验证策略3: 刷新页面后最终检查
+                console.log(`🔄 尝试页面刷新进行最终检查...`);
+                await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+                await page.waitForTimeout(5000);
+                
+                const finalButton = await page.$(selector);
+                if (finalButton) {
+                  const finalButtonText = await finalButton.innerText();
+                  const finalTrimmedText = finalButtonText.trim().toLowerCase();
+                  console.log(`🔄 刷新后最终检查按钮文本: "${finalButtonText}"`);
+                  
+                  const finalIsFollowing = finalTrimmedText.includes('正在关注') || 
+                                          finalTrimmedText.includes('following') ||
+                                          finalTrimmedText.includes('following you') ||
+                                          finalTrimmedText.includes('互相关注') ||
+                                          finalTrimmedText.includes('following and muting');
+                  
+                  if (finalIsFollowing) {
+                    console.log(`🎉 刷新后最终检查确认成功关注用户: @${username}`);
+                    followSuccess = true;
+                    break;
+                  }
+                }
+                
+                // 验证策略4: 检查是否存在其他状态指示器
+                console.log(`🔍 检查页面中是否存在关注成功的其他指示器...`);
+                
+                try {
+                  // 检查页面上是否有"正在关注"或"Following"文本（不局限于按钮）
+                  const followingTexts = await page.$$eval('*', elements => 
+                    elements.map(el => el.textContent?.trim().toLowerCase()).filter(text => 
+                      text && (text.includes('following') || text.includes('正在关注'))
+                    ).slice(0, 5)
+                  );
+                  
+                  if (followingTexts.length > 0) {
+                    console.log(`🎯 在页面中找到关注状态文本:`, followingTexts);
+                    console.log(`🎉 基于页面文本确认成功关注用户: @${username}`);
+                    followSuccess = true;
+                    break;
+                  }
+                } catch (textCheckError) {
+                  console.log(`⚠️ 页面文本检查失败: ${textCheckError.message}`);
+                }
+                
+                // 如果所有验证都失败，记录详细日志并抛出错误
+                console.log(`❌ 所有验证策略都未确认关注成功，可能原因:`);
+                console.log(`   - Twitter反自动化机制阻止状态更新`);
+                console.log(`   - 需要更长时间等待状态更新`);
+                console.log(`   - 关注操作可能被限制`);
+                
               } catch (error) {
-                console.log(`⚠️ 点击后检查按钮状态失败: ${error.message}`);
+                console.log(`⚠️ 增强验证过程出错: ${error.message}`);
               }
             } else {
               console.log(`❌ 按钮文本不是关注按钮或已关注状态: "${buttonText}"`);
