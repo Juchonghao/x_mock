@@ -50,7 +50,7 @@ class TwitterAuthService {
 
       console.log('开始使用 Auth Token 登录...');
       
-      // 访问 Twitter 首页
+      // 直接访问登录后的页面，强制使用现有的认证
       await this.page.goto('https://twitter.com/home', {
         waitUntil: 'networkidle',
         timeout: 30000
@@ -63,16 +63,26 @@ class TwitterAuthService {
         personalizationId: authConfig.twitter.personalizationId
       };
       
+      console.log('Auth Token 长度:', authData.authToken.length);
+      console.log('CT0 长度:', authData.ct0.length);
+      console.log('Personalization ID 长度:', authData.personalizationId.length);
+      
       await this.page.evaluate((authData) => {
+        console.log('在浏览器中设置认证 Cookie...');
         const cookies = [
-          `auth_token=${authData.authToken}; domain=.twitter.com; path=/; secure; samesite=none`,
-          `ct0=${authData.ct0}; domain=.twitter.com; path=/; secure; samesite=none`,
-          `personalization_id=${authData.personalizationId}; domain=.twitter.com; path=/; secure; samesite=none`
+          `auth_token=${authData.authToken}; Domain=.twitter.com; Path=/; Secure; SameSite=None`,
+          `ct0=${authData.ct0}; Domain=.twitter.com; Path=/; Secure; SameSite=None`,
+          `personalization_id=${authData.personalizationId}; Domain=.twitter.com; Path=/; Secure; SameSite=None`
         ];
         
-        cookies.forEach(cookie => {
+        console.log('设置的 Cookie 数量:', cookies.length);
+        
+        cookies.forEach((cookie, index) => {
+          console.log(`设置 Cookie ${index + 1}:`, cookie.substring(0, 50) + '...');
           document.cookie = cookie;
         });
+        
+        console.log('当前页面 Cookie:', document.cookie);
       }, authData);
 
       // 等待页面加载并检查登录状态
