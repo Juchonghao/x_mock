@@ -57,17 +57,23 @@ class TwitterAuthService {
       });
 
       // 设置 Auth Token Cookie
-      await this.page.evaluate((authConfig) => {
+      const authData = {
+        authToken: authConfig.twitter.authToken,
+        ct0: authConfig.twitter.ct0,
+        personalizationId: authConfig.twitter.personalizationId
+      };
+      
+      await this.page.evaluate((authData) => {
         const cookies = [
-          `auth_token=${authConfig.twitter.authToken}; domain=.twitter.com; path=/; secure; samesite=none`,
-          `ct0=${authConfig.twitter.ct0}; domain=.twitter.com; path=/; secure; samesite=none`,
-          `personalization_id=${authConfig.twitter.personalizationId}; domain=.twitter.com; path=/; secure; samesite=none`
+          `auth_token=${authData.authToken}; domain=.twitter.com; path=/; secure; samesite=none`,
+          `ct0=${authData.ct0}; domain=.twitter.com; path=/; secure; samesite=none`,
+          `personalization_id=${authData.personalizationId}; domain=.twitter.com; path=/; secure; samesite=none`
         ];
         
         cookies.forEach(cookie => {
           document.cookie = cookie;
         });
-      }, authConfig);
+      }, authData);
 
       // 等待页面加载并检查登录状态
       await this.page.waitForTimeout(3000);
