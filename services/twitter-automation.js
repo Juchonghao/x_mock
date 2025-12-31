@@ -85,7 +85,7 @@ class TwitterAutomationService {
             console.log(`📝 找到按钮文本: "${buttonText}"`);
             
             // 检查按钮文本长度，防止匹配到整个页面内容
-            if (buttonText.length > 50) {
+            if (buttonText.length > 200) {
               console.log(`⚠️ 按钮文本过长 (${buttonText.length} 字符)，跳过此按钮`);
               continue;
             }
@@ -106,9 +106,11 @@ class TwitterAutomationService {
               break;
             }
             
-            // 检查是否是关注按钮（需要点击）- 只匹配精确的词汇
+            // 检查是否是关注按钮（需要点击）- 更宽松的匹配
             const isFollowButton = (trimmedText === '关注' || 
-                                  trimmedText === 'follow');
+                                  trimmedText === 'follow' ||
+                                  trimmedText.includes('关注') ||
+                                  trimmedText.includes('follow'));
             
             if (isFollowButton) {
               console.log(`🖱️ 点击关注按钮: "${buttonText}"`);
@@ -276,30 +278,102 @@ class TwitterAutomationService {
                   console.log(`⚠️ 页面文本检查失败: ${textCheckError.message}`);
                 }
                 
+                // 验证策略5: 检查关注页面确认是否真正关注成功（最可靠的验证）
+                console.log(`🔍 尝试通过访问关注页面来验证是否真正关注...`);
+                try {
+                  const currentProfileUrl = page.url();
+                  const followingUrl = currentProfileUrl.includes('/status/') 
+                    ? currentProfileUrl.split('/status/')[0] + '/following'
+                    : currentProfileUrl + '/following';
+                  
+                  console.log(`🔗 访问关注页面: ${followingUrl}`);
+                  await page.goto(followingUrl, { 
+                    waitUntil: 'domcontentloaded', 
+                    timeout: 10000 
+                  });
+                  await page.waitForTimeout(3000);
+                  
+                  // 在关注页面中搜索目标用户名
+                  const followingUsers = await page.$$eval('a[href*="/"]', links => 
+                    links.map(link => {
+                      const href = link.getAttribute('href');
+                      const text = link.textContent?.trim();
+                      return { href, text };
+                    }).filter(item => 
+                      item.href && item.href.includes('@') && item.text
+                    ).slice(0, 20)
+                  );
+                  
+                  const targetFound = followingUsers.some(user => 
+                    user.text?.toLowerCase().includes(username.toLowerCase()) ||
+                    user.href?.includes(`/${username}`)
+                  );
+                  
+                  if (targetFound) {
+                    console.log(`🎉 在关注页面中找到 @${username}，确认关注成功！`);
+                    followSuccess = true;
+                    break;
+                  } else {
+                    console.log(`⚠️ 在关注页面中未找到 @${username}，可能关注失败`);
+                  }
+                  
+                  // 返回原页面
+                  await page.goto(currentProfileUrl, { 
+                    waitUntil: 'domcontentloaded', 
+                    timeout: 8000 
+                  });
+                  await page.waitForTimeout(2000);
+                  
+                } catch (followingPageError) {
+                  console.log(`⚠️ 关注页面验证失败: ${followingPageError.message}`);
+                }
+                
                 // 如果所有验证都失败，记录详细日志并抛出错误
                 console.log(`❌ 所有验证策略都未确认关注成功，可能原因:`);
                 console.log(`   - Twitter反自动化机制阻止状态更新`);
                 console.log(`   - 需要更长时间等待状态更新`);
                 console.log(`   - 关注操作可能被限制`);
                 
+                // 重要：明确设置followSuccess为false
+                followSuccess = false;
+                
               } catch (error) {
-                console.log(`⚠️ 增强验证过程出错: ${error.message}`);
+                console.log(`⚠️ 增强验证过程出错:`, error.message);
+                followSuccess = false;
               }
             } else {
               console.log(`❌ 按钮文本不是关注按钮或已关注状态: "${buttonText}"`);
+              followSuccess = false;
             }
           } else {
             console.log(`❌ 选择器未找到元素: ${selector}`);
+            followSuccess = false;
           }
         } catch (error) {
           console.log(`❌ 选择器 ${selector} 尝试失败:`, error.message);
+          followSuccess = false;
         }
       }
 
+      // 重要检查：只有在确认followSuccess为true时才返回成功
       if (!followSuccess) {
-        throw new Error(`无法找到或点击关注按钮，用户: @${username}`);
+        console.log(`❌ 关注验证失败，未能确认成功状态，用户: @${username}`);
+        
+        // 记录失败操作
+        this.operationHistory.push({
+          type: 'follow',
+          target: username,
+          timestamp: new Date().toISOString(),
+          status: 'failed',
+          error: '未能通过验证策略确认关注成功'
+        });
+
+        throw new Error(`关注用户 @${username} 失败：未能通过验证策略确认关注成功。可能被Twitter反自动化机制阻止。`);
       }
 
+      // 只有在验证成功后才记录成功操作
+      console.log(`🎉 验证确认：成功关注用户 @${username}`);
+      
       // 记录操作历史
       this.operationHistory.push({
         type: 'follow',
