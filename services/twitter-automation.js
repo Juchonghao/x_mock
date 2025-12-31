@@ -60,24 +60,19 @@ class TwitterAutomationService {
 
       await page.waitForTimeout(3000);
 
-      // 查找并点击关注按钮 - 更新选择器适配新Twitter UI
+      // 查找并点击关注按钮 - 更新选择器适配新Twitter UI（移除过于宽泛的选择器）
       const followButtonSelectors = [
         '[data-testid="follow"]',
         '[data-testid="UserFollowButton"]',
         '[data-testid="FollowButton"]',
         '[data-testid="user-follow-button"]',
-        'div[role="button"]:has-text("关注")',
-        'div[role="button"]:has-text("Follow")',
-        'div[role="button"]:has-text("关注")',
-        'div[role="button"]:has-text("Follow")',
+        'button[aria-label*="Follow" i]',
+        'button[aria-label*="关注" i]',
         'button:has-text("关注")',
         'button:has-text("Follow")',
-        'div:has-text("关注")',
-        'div:has-text("Follow")',
-        '[aria-label*="Follow"]',
-        '[aria-label*="关注"]',
-        'span:has-text("关注")',
-        'span:has-text("Follow")'
+        'div[role="button"][data-testid*="follow" i]',
+        'div[role="button"][aria-label*="Follow" i]',
+        'div[role="button"][aria-label*="关注" i]'
       ];
 
       let followSuccess = false;
@@ -88,6 +83,12 @@ class TwitterAutomationService {
           if (button) {
             const buttonText = await button.innerText();
             console.log(`📝 找到按钮文本: "${buttonText}"`);
+            
+            // 检查按钮文本长度，防止匹配到整个页面内容
+            if (buttonText.length > 50) {
+              console.log(`⚠️ 按钮文本过长 (${buttonText.length} 字符)，跳过此按钮`);
+              continue;
+            }
             
             // 更精确的关注状态检测逻辑
             const trimmedText = buttonText.trim().toLowerCase();
@@ -105,11 +106,9 @@ class TwitterAutomationService {
               break;
             }
             
-            // 检查是否是关注按钮（需要点击）
+            // 检查是否是关注按钮（需要点击）- 只匹配精确的词汇
             const isFollowButton = (trimmedText === '关注' || 
-                                  trimmedText === 'follow' ||
-                                  trimmedText.includes('关注') ||
-                                  trimmedText.includes('follow'));
+                                  trimmedText === 'follow');
             
             if (isFollowButton) {
               console.log(`🖱️ 点击关注按钮: "${buttonText}"`);
