@@ -24,11 +24,39 @@ class TwitterAutomationService {
         throw new Error('无法获取浏览器页面对象');
       }
 
-      // 访问用户主页
-      await page.goto(`https://twitter.com/${username}`, {
-        waitUntil: 'networkidle',
-        timeout: 30000
-      });
+      // 访问用户主页 - 使用相同的超时处理策略
+      let navigationSuccess = false;
+      try {
+        await page.goto(`https://twitter.com/${username}`, {
+          waitUntil: 'networkidle',
+          timeout: 20000
+        });
+        navigationSuccess = true;
+      } catch (error) {
+        console.log(`⚠️ 访问用户页面超时: @${username}`);
+        
+        // 如果主页面超时，尝试直接访问基础用户URL
+        try {
+          await page.goto(`https://x.com/${username}`, {
+            waitUntil: 'domcontentloaded',
+            timeout: 15000
+          });
+          console.log(`✅ 使用 x.com 成功访问用户页面: @${username}`);
+          navigationSuccess = true;
+        } catch (fallbackError) {
+          // 最后的尝试：尝试简化URL
+          try {
+            await page.goto(`https://twitter.com/${username}`, {
+              waitUntil: 'domcontentloaded',
+              timeout: 15000
+            });
+            console.log(`✅ 使用简化方式成功访问用户页面: @${username}`);
+            navigationSuccess = true;
+          } catch (finalError) {
+            throw new Error(`无法访问用户页面: @${username}`);
+          }
+        }
+      }
 
       await page.waitForTimeout(3000);
 
@@ -127,11 +155,29 @@ class TwitterAutomationService {
         throw new Error('无法获取浏览器页面对象');
       }
 
-      // 访问推文页面
-      await page.goto(tweetUrl, {
-        waitUntil: 'networkidle',
-        timeout: 30000
-      });
+      // 访问推文页面 - 使用相同的超时处理策略
+      let navigationSuccess = false;
+      try {
+        await page.goto(tweetUrl, {
+          waitUntil: 'networkidle',
+          timeout: 20000
+        });
+        navigationSuccess = true;
+      } catch (error) {
+        console.log('⚠️ 访问推文页面超时');
+        
+        // 如果主页面超时，尝试简化导航
+        try {
+          await page.goto(tweetUrl, {
+            waitUntil: 'domcontentloaded',
+            timeout: 15000
+          });
+          console.log('✅ 使用简化方式成功访问推文页面');
+          navigationSuccess = true;
+        } catch (fallbackError) {
+          throw new Error(`无法访问推文页面: ${tweetUrl}`);
+        }
+      }
 
       await page.waitForTimeout(3000);
 
@@ -230,11 +276,29 @@ class TwitterAutomationService {
         throw new Error('无法获取浏览器页面对象');
       }
 
-      // 访问推文页面
-      await page.goto(tweetUrl, {
-        waitUntil: 'networkidle',
-        timeout: 30000
-      });
+      // 访问推文页面 - 使用相同的超时处理策略
+      let navigationSuccess = false;
+      try {
+        await page.goto(tweetUrl, {
+          waitUntil: 'networkidle',
+          timeout: 20000
+        });
+        navigationSuccess = true;
+      } catch (error) {
+        console.log('⚠️ 访问推文页面超时');
+        
+        // 如果主页面超时，尝试简化导航
+        try {
+          await page.goto(tweetUrl, {
+            waitUntil: 'domcontentloaded',
+            timeout: 15000
+          });
+          console.log('✅ 使用简化方式成功访问推文页面');
+          navigationSuccess = true;
+        } catch (fallbackError) {
+          throw new Error(`无法访问推文页面: ${tweetUrl}`);
+        }
+      }
 
       await page.waitForTimeout(3000);
 

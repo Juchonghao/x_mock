@@ -33,93 +33,331 @@ class TwitterAuthService {
     }
   }
 
-  // 使用 Auth Token 登录
+  // 使用 Auth Token 登录 - 改进版，处理服务器环境差异
   async loginWithAuthToken() {
     try {
+      console.log('🚀 开始 Auth Token 认证 (服务器环境优化版)...');
+      
       if (!authConfig.twitter.isConfigured()) {
         throw new Error('Twitter Auth Token 配置不完整');
       }
 
       // 检查浏览器是否已初始化
       if (!this.browser || !this.page) {
+        console.log('📱 重新初始化浏览器...');
         const initialized = await this.initializeBrowser();
         if (!initialized) {
           throw new Error('浏览器初始化失败');
         }
       }
 
-      console.log('开始使用 Auth Token 登录...');
-      
-      // 直接访问登录后的页面，强制使用现有的认证
-      await this.page.goto('https://twitter.com/home', {
-        waitUntil: 'networkidle',
-        timeout: 30000
-      });
+      console.log('🔐 准备设置认证 Cookie...');
 
-      // 设置 Auth Token Cookie
+      // 获取认证数据
       const authData = {
         authToken: authConfig.twitter.authToken,
         ct0: authConfig.twitter.ct0,
         personalizationId: authConfig.twitter.personalizationId
       };
       
-      console.log('Auth Token 长度:', authData.authToken.length);
-      console.log('CT0 长度:', authData.ct0.length);
-      console.log('Personalization ID 长度:', authData.personalizationId.length);
+      console.log('📊 Auth Token 长度:', authData.authToken.length);
+      console.log('📊 CT0 长度:', authData.ct0.length);
+      console.log('📊 Personalization ID 长度:', authData.personalizationId.length);
+      console.log('🔍 Auth Token 预览:', authData.authToken.substring(0, 20) + '...');
+      console.log('🔍 CT0 预览:', authData.ct0.substring(0, 20) + '...');
+
+      // 服务器环境专用：双重Cookie设置策略
+      const context = this.page.context();
       
-      await this.page.evaluate((authData) => {
-        console.log('在浏览器中设置认证 Cookie...');
-        const cookies = [
-          `auth_token=${authData.authToken}; Domain=.twitter.com; Path=/; Secure; SameSite=None`,
-          `ct0=${authData.ct0}; Domain=.twitter.com; Path=/; Secure; SameSite=None`,
-          `personalization_id=${authData.personalizationId}; Domain=.twitter.com; Path=/; Secure; SameSite=None`
-        ];
+      // 方法1：使用 twitter.com 域
+      const twitterCookies = [
+        {
+          name: 'auth_token',
+          value: authData.authToken,
+          domain: '.twitter.com',
+          path: '/',
+          secure: true,
+          httpOnly: false,
+          sameSite: 'None'
+        },
+        {
+          name: 'ct0',
+          value: authData.ct0,
+          domain: '.twitter.com',
+          path: '/',
+          secure: true,
+          httpOnly: false,
+          sameSite: 'None'
+        },
+        {
+          name: 'personalization_id',
+          value: authData.personalizationId,
+          domain: '.twitter.com',
+          path: '/',
+          secure: true,
+          httpOnly: false,
+          sameSite: 'None'
+        }
+      ];
+
+      // 方法2：使用 x.com 域（Twitter新域名）
+      const xcomCookies = [
+        {
+          name: 'auth_token',
+          value: authData.authToken,
+          domain: '.x.com',
+          path: '/',
+          secure: true,
+          httpOnly: false,
+          sameSite: 'None'
+        },
+        {
+          name: 'ct0',
+          value: authData.ct0,
+          domain: '.x.com',
+          path: '/',
+          secure: true,
+          httpOnly: false,
+          sameSite: 'None'
+        },
+        {
+          name: 'personalization_id',
+          value: authData.personalizationId,
+          domain: '.x.com',
+          path: '/',
+          secure: true,
+          httpOnly: false,
+          sameSite: 'None'
+        }
+      ];
+
+      console.log('🍪 设置 twitter.com 域 Cookie...');
+      await context.addCookies(twitterCookies);
+      console.log('🍪 设置 x.com 域 Cookie...');
+      await context.addCookies(xcomCookies);
+      console.log('✅ 双重域 Cookie 设置完成');
+
+      // 验证 Cookie 是否设置成功
+      const currentCookies = await context.cookies();
+      console.log('📊 当前 Cookie 数量:', currentCookies.length);
+      
+      const authCookies = currentCookies.filter(cookie => 
+        cookie.name === 'auth_token' || cookie.name === 'ct0' || cookie.name === 'personalization_id'
+      );
+      console.log('🔐 认证相关 Cookie 数量:', authCookies.length);
+      
+      authCookies.forEach(cookie => {
+        console.log(`🍪 ${cookie.name} Cookie: ${cookie.value.substring(0, 20)}... (domain: ${cookie.domain})`);
+      });
+
+      // 服务器环境专用：智能页面访问策略
+      console.log('🌐 开始页面访问测试...');
+      
+      // 服务器环境专用：智能页面访问策略
+      const pageAccessStrategies = [
+        { url: 'https://twitter.com/home', desc: 'Twitter主页', timeout: 20000, waitUntil: 'networkidle' },
+        { url: 'https://x.com/home', desc: 'X.com主页', timeout: 20000, waitUntil: 'networkidle' },
+        { url: 'https://twitter.com/settings/account', desc: 'Twitter设置页面', timeout: 15000, waitUntil: 'domcontentloaded' },
+        { url: 'https://x.com/settings/account', desc: 'X.com设置页面', timeout: 15000, waitUntil: 'domcontentloaded' },
+        { url: 'https://twitter.com', desc: 'Twitter首页', timeout: 15000, waitUntil: 'domcontentloaded' },
+        { url: 'https://x.com', desc: 'X.com首页', timeout: 15000, waitUntil: 'domcontentloaded' }
+      ];
+      
+      let pageAccessSuccess = false;
+      let lastError = null;
+      
+      for (const strategy of pageAccessStrategies) {
+        try {
+          console.log(`🔄 尝试访问: ${strategy.desc} (${strategy.url})`);
+          await this.page.goto(strategy.url, {
+            waitUntil: strategy.waitUntil,
+            timeout: strategy.timeout
+          });
+          
+          // 访问成功，等待页面稳定
+          await this.page.waitForTimeout(3000);
+          
+          const currentUrl = this.page.url();
+          console.log(`✅ 成功访问 ${strategy.desc}, 当前URL: ${currentUrl}`);
+          
+          // 检查是否被重定向到登录页面
+          if (currentUrl.includes('login') || currentUrl.includes('i/flow/login')) {
+            console.log(`⚠️ ${strategy.desc} 重定向到登录页面，尝试下一个策略...`);
+            lastError = new Error('重定向到登录页面');
+            continue;
+          }
+          
+          // 检查是否访问成功（不在登录页面且有内容）
+          if (!currentUrl.includes('login') && !currentUrl.includes('i/flow/login')) {
+            console.log(`🎉 ${strategy.desc} 访问成功且未重定向到登录！`);
+            pageAccessSuccess = true;
+            break;
+          }
+          
+        } catch (error) {
+          console.log(`❌ ${strategy.desc} 访问失败: ${error.message}`);
+          lastError = error;
+          continue;
+        }
+      }
+      
+      if (!pageAccessSuccess) {
+        console.log('❌ 所有页面访问策略都失败');
+        throw new Error(`无法成功访问Twitter/X页面: ${lastError?.message || '未知错误'}`);
+      }
+
+      // 服务器环境专用：增强认证验证
+      console.log('🔍 进行认证状态验证...');
+      
+      // 等待页面稳定
+      await this.page.waitForTimeout(2000);
+      
+      // 检查当前 URL
+      const currentUrl = this.page.url();
+      console.log('📍 当前页面 URL:', currentUrl);
+      
+      // 检查页面内容
+      const pageTitle = await this.page.title();
+      console.log('📄 页面标题:', pageTitle);
+      
+      // 重要：检查是否被重定向到登录页面
+      if (currentUrl.includes('login') || currentUrl.includes('i/flow/login')) {
+        console.log('❌ 被重定向到登录页面，认证失败');
+        console.log('🔍 检查页面错误信息...');
         
-        console.log('设置的 Cookie 数量:', cookies.length);
+        try {
+          const pageContent = await this.page.content();
+          console.log('📊 页面内容长度:', pageContent.length);
+          
+          // 检查是否有具体的错误信息
+          if (pageContent.includes('Invalid') || pageContent.includes('错误') || pageContent.includes('error')) {
+            console.log('⚠️ 页面显示错误信息');
+          }
+        } catch (e) {
+          console.log('❌ 无法获取页面内容:', e.message);
+        }
         
-        cookies.forEach((cookie, index) => {
-          console.log(`设置 Cookie ${index + 1}:`, cookie.substring(0, 50) + '...');
-          document.cookie = cookie;
+        this.authenticated = false;
+        return false;
+      }
+      
+      // 获取页面内容片段进行调试
+      try {
+        const pageContent = await this.page.content();
+        console.log('页面内容长度:', pageContent.length);
+        
+        // 检查是否有用户相关的元素
+        const hasUserElements = await this.page.evaluate(() => {
+          const indicators = [
+            '[data-testid="SideNav_AccountSwitcher_Button"]',
+            '[data-testid="user-menu"]', 
+            '[aria-label="个人资料"]',
+            '[data-testid="AccountSwitcher_Button"]',
+            '[data-testid="me"]',
+            '.css-1dbjc4n.r-1d2f490.r-zl2h9q',
+            '[data-testid="AccountSwitcher_Verified_Account"]'
+          ];
+          
+          for (const selector of indicators) {
+            const element = document.querySelector(selector);
+            if (element) {
+              return { found: true, selector: selector, text: element.textContent };
+            }
+          }
+          return { found: false };
         });
         
-        console.log('当前页面 Cookie:', document.cookie);
-      }, authData);
-
-      // 等待页面加载并检查登录状态
-      await this.page.waitForTimeout(3000);
+        console.log('用户界面元素检查:', hasUserElements);
+        
+        // 检查 URL 是否包含已登录的状态
+        const currentUrl = this.page.url();
+        console.log('当前完整 URL:', currentUrl);
+        
+        // 如果在设置页面且能访问，说明认证可能有效
+        if (currentUrl.includes('settings/account') && !currentUrl.includes('login')) {
+          console.log('✅ 成功访问设置页面且未重定向到登录，认证有效');
+          this.authenticated = true;
+          return true;
+        }
+        
+      } catch (contentError) {
+        console.log('检查页面内容时出错:', contentError.message);
+      }
       
-      // 检查是否成功登录
-      const currentUrl = this.page.url();
-      console.log('当前 URL:', currentUrl);
-      
-      // 如果 URL 包含 login，说明登录失败
+      // 检查是否被重定向到登录页面
       if (currentUrl.includes('login') || currentUrl.includes('i/flow/login')) {
+        console.log('❌ 被重定向到登录页面，认证失败');
+        
+        // 尝试获取页面错误信息
+        try {
+          const pageContent = await this.page.content();
+          console.log('页面内容长度:', pageContent.length);
+          
+          // 检查是否有具体的错误信息
+          if (pageContent.includes('Invalid') || pageContent.includes('错误') || pageContent.includes('error')) {
+            console.log('页面显示错误信息');
+          }
+        } catch (e) {
+          console.log('无法获取页面内容:', e.message);
+        }
+        
         this.authenticated = false;
-        console.log('Auth Token 认证失败');
         return false;
       }
 
-      // 检查页面是否包含登录用户信息
+      // 检查页面是否包含登录成功的标志
+      console.log('检查登录状态标志...');
+      
+      // 多种方式检查登录状态
+      let loginSuccess = false;
+      
       try {
-        await this.page.waitForSelector('[data-testid="SideNav_AccountSwitcher_Button"], [data-testid="user-menu"], [aria-label="个人资料"]', {
-          timeout: 5000
-        });
-        this.authenticated = true;
-        console.log('Auth Token 认证成功');
-        return true;
+        // 方法1：检查用户菜单按钮
+        await this.page.waitForSelector('[data-testid="SideNav_AccountSwitcher_Button"]', { timeout: 5000 });
+        console.log('✅ 找到用户菜单按钮，认证成功');
+        loginSuccess = true;
       } catch (error) {
-        // 尝试其他登录状态检查方法
-        const pageContent = await this.page.content();
-        if (pageContent.includes('登录') || pageContent.includes('Log in') || pageContent.includes('Sign in')) {
-          this.authenticated = false;
-          console.log('Auth Token 认证失败 - 页面显示需要登录');
-          return false;
+        console.log('未找到用户菜单按钮，尝试其他检查方式...');
+      }
+      
+      if (!loginSuccess) {
+        try {
+          // 方法2：检查个人资料链接
+          await this.page.waitForSelector('[aria-label="个人资料"], [data-testid="user-menu"]', { timeout: 5000 });
+          console.log('✅ 找到个人资料链接，认证成功');
+          loginSuccess = true;
+        } catch (error) {
+          console.log('未找到个人资料链接...');
         }
-        
-        // 如果没有明确显示登录提示，假设认证成功
+      }
+      
+      if (!loginSuccess) {
+        try {
+          // 方法3：检查页面内容
+          const pageContent = await this.page.content();
+          const hasLoginIndicators = pageContent.includes('登录') || 
+                                   pageContent.includes('Log in') || 
+                                   pageContent.includes('Sign in');
+          
+          if (!hasLoginIndicators) {
+            console.log('✅ 页面内容不包含登录提示，假设认证成功');
+            loginSuccess = true;
+          } else {
+            console.log('❌ 页面内容包含登录提示，认证可能失败');
+          }
+        } catch (error) {
+          console.log('检查页面内容时出错:', error.message);
+        }
+      }
+      
+      if (loginSuccess) {
         this.authenticated = true;
-        console.log('Auth Token 认证成功（通过页面内容判断）');
+        console.log('🎉 Auth Token 认证成功');
         return true;
+      } else {
+        this.authenticated = false;
+        console.log('❌ Auth Token 认证失败 - 未能确认登录状态');
+        return false;
       }
 
     } catch (error) {
