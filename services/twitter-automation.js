@@ -83,29 +83,56 @@ class TwitterAutomationService {
       let followSuccess = false;
       for (const selector of followButtonSelectors) {
         try {
+          console.log(`🔍 尝试选择器: ${selector}`);
           const button = await page.$(selector);
           if (button) {
-            // 检查按钮是否已经显示"正在关注"
             const buttonText = await button.innerText();
-            if (buttonText.includes('正在关注') || buttonText.includes('Following')) {
-              console.log(`用户 @${username} 已经被关注`);
+            console.log(`📝 找到按钮文本: "${buttonText}"`);
+            
+            // 增强的关注状态检测逻辑
+            const isFollowing = buttonText.includes('正在关注') || 
+                              buttonText.includes('Following') ||
+                              buttonText.includes('Following you') ||
+                              buttonText.includes('互相关注');
+            
+            if (isFollowing) {
+              console.log(`✅ 用户 @${username} 已经是关注状态`);
               followSuccess = true;
               break;
             }
 
-            await button.click();
-            await page.waitForTimeout(2000);
+            // 检查是否是关注按钮（不是取消关注）
+            const isFollowButton = buttonText.includes('关注') || 
+                                 buttonText.includes('Follow');
             
-            // 验证关注是否成功
-            const updatedButtonText = await button.innerText();
-            if (updatedButtonText.includes('正在关注') || updatedButtonText.includes('Following')) {
-              console.log(`成功关注用户: @${username}`);
-              followSuccess = true;
-              break;
+            if (isFollowButton) {
+              console.log(`🖱️ 点击关注按钮: "${buttonText}"`);
+              await button.click();
+              await page.waitForTimeout(3000);
+              
+              // 验证关注是否成功
+              const updatedButtonText = await button.innerText();
+              console.log(`🔄 点击后按钮文本: "${updatedButtonText}"`);
+              
+              const isNowFollowing = updatedButtonText.includes('正在关注') || 
+                                   updatedButtonText.includes('Following') ||
+                                   updatedButtonText.includes('互相关注');
+              
+              if (isNowFollowing) {
+                console.log(`🎉 成功关注用户: @${username}`);
+                followSuccess = true;
+                break;
+              } else {
+                console.log(`⚠️ 关注操作后状态未更新，继续尝试其他选择器`);
+              }
+            } else {
+              console.log(`❌ 按钮文本不是关注按钮: "${buttonText}"`);
             }
+          } else {
+            console.log(`❌ 选择器未找到元素: ${selector}`);
           }
         } catch (error) {
-          console.log(`选择器 ${selector} 尝试失败:`, error.message);
+          console.log(`❌ 选择器 ${selector} 尝试失败:`, error.message);
         }
       }
 
