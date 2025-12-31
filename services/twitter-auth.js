@@ -33,10 +33,10 @@ class TwitterAuthService {
     }
   }
 
-  // 使用 Auth Token 登录 - 改进版，处理服务器环境差异
+  // 使用 Auth Token 登录 - 改进版，使用新的认证配置
   async loginWithAuthToken() {
     try {
-      console.log('🚀 开始 Auth Token 认证 (服务器环境优化版)...');
+      console.log('🚀 开始 Auth Token 认证 (新配置版)...');
       
       if (!authConfig.twitter.isConfigured()) {
         throw new Error('Twitter Auth Token 配置不完整');
@@ -53,84 +53,31 @@ class TwitterAuthService {
 
       console.log('🔐 准备设置认证 Cookie...');
 
-      // 获取认证数据
+      // 获取认证数据 - 使用新的配置方法
       const authData = {
-        authToken: authConfig.twitter.authToken,
-        ct0: authConfig.twitter.ct0,
-        personalizationId: authConfig.twitter.personalizationId
+        authToken: authConfig.twitter.getAuthToken(),
+        ct0: authConfig.twitter.getCt0(),
+        twid: authConfig.twitter.getTwid()
       };
       
       console.log('📊 Auth Token 长度:', authData.authToken.length);
       console.log('📊 CT0 长度:', authData.ct0.length);
-      console.log('📊 Personalization ID 长度:', authData.personalizationId.length);
+      console.log('📊 TWID 长度:', authData.twid.length);
       console.log('🔍 Auth Token 预览:', authData.authToken.substring(0, 20) + '...');
       console.log('🔍 CT0 预览:', authData.ct0.substring(0, 20) + '...');
+      console.log('🔍 TWID 预览:', authData.twid.substring(0, 20) + '...');
 
-      // 服务器环境专用：双重Cookie设置策略
+      // 使用新的配置获取 Playwright Cookie 数组
       const context = this.page.context();
+      const allCookies = authConfig.twitter.getPlaywrightCookies();
       
-      // 方法1：使用 twitter.com 域
-      const twitterCookies = [
-        {
-          name: 'auth_token',
-          value: authData.authToken,
-          domain: '.twitter.com',
-          path: '/',
-          secure: true,
-          httpOnly: false,
-          sameSite: 'None'
-        },
-        {
-          name: 'ct0',
-          value: authData.ct0,
-          domain: '.twitter.com',
-          path: '/',
-          secure: true,
-          httpOnly: false,
-          sameSite: 'None'
-        },
-        {
-          name: 'personalization_id',
-          value: authData.personalizationId,
-          domain: '.twitter.com',
-          path: '/',
-          secure: true,
-          httpOnly: false,
-          sameSite: 'None'
-        }
-      ];
-
-      // 方法2：使用 x.com 域（Twitter新域名）
-      const xcomCookies = [
-        {
-          name: 'auth_token',
-          value: authData.authToken,
-          domain: '.x.com',
-          path: '/',
-          secure: true,
-          httpOnly: false,
-          sameSite: 'None'
-        },
-        {
-          name: 'ct0',
-          value: authData.ct0,
-          domain: '.x.com',
-          path: '/',
-          secure: true,
-          httpOnly: false,
-          sameSite: 'None'
-        },
-        {
-          name: 'personalization_id',
-          value: authData.personalizationId,
-          domain: '.x.com',
-          path: '/',
-          secure: true,
-          httpOnly: false,
-          sameSite: 'None'
-        }
-      ];
-
+      console.log('🍪 设置认证 Cookie...');
+      console.log('📊 将设置', allCookies.length, '个 Cookie');
+      
+      // 分批设置 Cookie 以确保可靠性
+      const twitterCookies = allCookies.filter(cookie => cookie.domain === '.twitter.com');
+      const xcomCookies = allCookies.filter(cookie => cookie.domain === '.x.com');
+      
       console.log('🍪 设置 twitter.com 域 Cookie...');
       await context.addCookies(twitterCookies);
       console.log('🍪 设置 x.com 域 Cookie...');
@@ -142,7 +89,7 @@ class TwitterAuthService {
       console.log('📊 当前 Cookie 数量:', currentCookies.length);
       
       const authCookies = currentCookies.filter(cookie => 
-        cookie.name === 'auth_token' || cookie.name === 'ct0' || cookie.name === 'personalization_id'
+        cookie.name === 'auth_token' || cookie.name === 'ct0' || cookie.name === 'twid'
       );
       console.log('🔐 认证相关 Cookie 数量:', authCookies.length);
       
