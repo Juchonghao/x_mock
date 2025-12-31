@@ -60,14 +60,24 @@ class TwitterAutomationService {
 
       await page.waitForTimeout(3000);
 
-      // 查找并点击关注按钮
+      // 查找并点击关注按钮 - 更新选择器适配新Twitter UI
       const followButtonSelectors = [
         '[data-testid="follow"]',
         '[data-testid="UserFollowButton"]',
+        '[data-testid="FollowButton"]',
+        '[data-testid="user-follow-button"]',
+        'div[role="button"]:has-text("关注")',
+        'div[role="button"]:has-text("Follow")',
         'div[role="button"]:has-text("关注")',
         'div[role="button"]:has-text("Follow")',
         'button:has-text("关注")',
-        'button:has-text("Follow")'
+        'button:has-text("Follow")',
+        'div:has-text("关注")',
+        'div:has-text("Follow")',
+        '[aria-label*="Follow"]',
+        '[aria-label*="关注"]',
+        'span:has-text("关注")',
+        'span:has-text("Follow")'
       ];
 
       let followSuccess = false;
