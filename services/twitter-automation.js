@@ -138,11 +138,34 @@ class TwitterAutomationService {
                 }
               }
               
-              await page.waitForTimeout(5000); // 增加等待时间
+              // 等待更长时间让页面响应
+              await page.waitForTimeout(8000);
+              
+              // 检查是否有弹窗需要处理
+              try {
+                const modal = await page.$('[role="dialog"]');
+                if (modal) {
+                  console.log(`⚠️ 检测到弹窗，尝试关闭...`);
+                  const closeButton = await modal.$('button[aria-label*="Close" i], button[aria-label*="取消" i], button[aria-label*="Cancel" i]');
+                  if (closeButton) {
+                    await closeButton.click();
+                    await page.waitForTimeout(2000);
+                  }
+                }
+              } catch (modalError) {
+                console.log(`⚠️ 弹窗处理失败: ${modalError.message}`);
+              }
               
               // 验证关注是否成功
               try {
-                const updatedButtonText = await button.innerText();
+                // 刷新按钮引用，避免stale element
+                const refreshedButton = await page.$(selector);
+                if (!refreshedButton) {
+                  console.log(`⚠️ 按钮元素已失效，尝试重新查找...`);
+                  continue;
+                }
+                
+                const updatedButtonText = await refreshedButton.innerText();
                 const updatedTrimmedText = updatedButtonText.trim().toLowerCase();
                 console.log(`🔄 点击后按钮文本: "${updatedButtonText}"`);
                 
@@ -157,22 +180,33 @@ class TwitterAutomationService {
                   followSuccess = true;
                   break;
                 } else {
-                  console.log(`⚠️ 关注操作后状态可能未完全更新，继续尝试其他选择器`);
-                  // 等待更长时间，然后再次检查
-                  await page.waitForTimeout(3000);
-                  const finalButtonText = await button.innerText();
-                  const finalTrimmedText = finalButtonText.trim().toLowerCase();
+                  console.log(`⚠️ 关注操作后状态可能未完全更新，尝试页面刷新检查...`);
                   
-                  const finalIsFollowing = finalTrimmedText.includes('正在关注') || 
-                                          finalTrimmedText.includes('following') ||
-                                          finalTrimmedText.includes('following you') ||
-                                          finalTrimmedText.includes('互相关注') ||
-                                          finalTrimmedText.includes('following and muting');
-                  
-                  if (finalIsFollowing) {
-                    console.log(`🎉 延迟确认成功关注用户: @${username}`);
-                    followSuccess = true;
-                    break;
+                  // 尝试刷新页面检查关注状态
+                  try {
+                    await page.reload({ waitUntil: 'domcontentloaded', timeout: 10000 });
+                    await page.waitForTimeout(3000);
+                    
+                    const finalButton = await page.$(selector);
+                    if (finalButton) {
+                      const finalButtonText = await finalButton.innerText();
+                      const finalTrimmedText = finalButtonText.trim().toLowerCase();
+                      console.log(`🔄 刷新后按钮文本: "${finalButtonText}"`);
+                      
+                      const finalIsFollowing = finalTrimmedText.includes('正在关注') || 
+                                              finalTrimmedText.includes('following') ||
+                                              finalTrimmedText.includes('following you') ||
+                                              finalTrimmedText.includes('互相关注') ||
+                                              finalTrimmedText.includes('following and muting');
+                      
+                      if (finalIsFollowing) {
+                        console.log(`🎉 刷新后确认成功关注用户: @${username}`);
+                        followSuccess = true;
+                        break;
+                      }
+                    }
+                  } catch (reloadError) {
+                    console.log(`⚠️ 页面刷新检查失败: ${reloadError.message}`);
                   }
                 }
               } catch (error) {
