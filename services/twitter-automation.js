@@ -203,27 +203,55 @@ class TwitterAutomationService {
                   }
                 }
                 
-                // 验证策略3: 刷新页面后最终检查
+                // 验证策略3: 刷新页面后最终检查（使用更短超时）
                 console.log(`🔄 尝试页面刷新进行最终检查...`);
-                await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
-                await page.waitForTimeout(5000);
-                
-                const finalButton = await page.$(selector);
-                if (finalButton) {
-                  const finalButtonText = await finalButton.innerText();
-                  const finalTrimmedText = finalButtonText.trim().toLowerCase();
-                  console.log(`🔄 刷新后最终检查按钮文本: "${finalButtonText}"`);
+                try {
+                  await page.reload({ waitUntil: 'domcontentloaded', timeout: 8000 });
+                  await page.waitForTimeout(3000);
                   
-                  const finalIsFollowing = finalTrimmedText.includes('正在关注') || 
-                                          finalTrimmedText.includes('following') ||
-                                          finalTrimmedText.includes('following you') ||
-                                          finalTrimmedText.includes('互相关注') ||
-                                          finalTrimmedText.includes('following and muting');
+                  const finalButton = await page.$(selector);
+                  if (finalButton) {
+                    const finalButtonText = await finalButton.innerText();
+                    const finalTrimmedText = finalButtonText.trim().toLowerCase();
+                    console.log(`🔄 刷新后最终检查按钮文本: "${finalButtonText}"`);
+                    
+                    const finalIsFollowing = finalTrimmedText.includes('正在关注') || 
+                                            finalTrimmedText.includes('following') ||
+                                            finalTrimmedText.includes('following you') ||
+                                            finalTrimmedText.includes('互相关注') ||
+                                            finalTrimmedText.includes('following and muting');
+                    
+                    if (finalIsFollowing) {
+                      console.log(`🎉 刷新后最终检查确认成功关注用户: @${username}`);
+                      followSuccess = true;
+                      break;
+                    }
+                  }
+                } catch (reloadError) {
+                  console.log(`⚠️ 页面刷新超时或失败: ${reloadError.message}，继续其他验证策略...`);
                   
-                  if (finalIsFollowing) {
-                    console.log(`🎉 刷新后最终检查确认成功关注用户: @${username}`);
-                    followSuccess = true;
-                    break;
+                  // 如果刷新失败，检查当前页面状态
+                  try {
+                    const currentButton = await page.$(selector);
+                    if (currentButton) {
+                      const currentButtonText = await currentButton.innerText();
+                      const currentTrimmedText = currentButtonText.trim().toLowerCase();
+                      console.log(`🔄 刷新失败后检查当前按钮文本: "${currentButtonText}"`);
+                      
+                      const currentIsFollowing = currentTrimmedText.includes('正在关注') || 
+                                                currentTrimmedText.includes('following') ||
+                                                currentTrimmedText.includes('following you') ||
+                                                currentTrimmedText.includes('互相关注') ||
+                                                currentTrimmedText.includes('following and muting');
+                      
+                      if (currentIsFollowing) {
+                        console.log(`🎉 刷新失败后基于当前状态确认成功关注用户: @${username}`);
+                        followSuccess = true;
+                        break;
+                      }
+                    }
+                  } catch (currentCheckError) {
+                    console.log(`⚠️ 刷新失败后状态检查出错: ${currentCheckError.message}`);
                   }
                 }
                 
